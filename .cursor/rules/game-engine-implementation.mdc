@@ -1,0 +1,100 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Game Engine Implementation
+
+The Game Engine is the core component of the poker system, responsible for coordinating the game flow and processing player actions.
+
+## Component Overview
+
+The GameEngine class in `src/engine/GameEngine.ts` serves as the central orchestrator for a poker game. Key responsibilities include:
+
+1. **Managing the game state** - Uses StateMachine to track and transition between game states (WAITING, STARTING, PREFLOP, FLOP, TURN, RIVER, SHOWDOWN, FINISHED)
+2. **Processing player actions** - Validates and executes fold, check, call, bet, raise, and all-in actions
+3. **Handling betting rounds** - Manages the betting flow and pot collection
+4. **Dealing cards** - Controls the dealing of hole cards and community cards
+5. **Determining winners** - Evaluates hands and awards pots at showdown
+6. **Event propagation** - Notifies other components of game events
+
+## Key Features
+
+1. **Configurability**
+   - Supports different game variants (Texas Hold'em, Omaha)
+   - Configurable betting structures (No Limit, Pot Limit, Fixed Limit)
+   - Adjustable blinds, antes, and player limits
+
+2. **Game Flow Control**
+   - Manages progression through betting streets
+   - Handles player turns and action timeouts
+   - Properly processes side pots for all-in situations
+
+3. **Event System**
+   - Publishers/Subscriber pattern for state changes
+   - Events for gameStarted, playerAction, stateChanged, roundComplete, handComplete, etc.
+   - Allows external components to react to game changes
+
+4. **Integration with Other Components**
+   - Works with the HandEvaluator to determine hand strengths
+   - Uses PotManager for pot calculations and side pots
+   - Coordinates with Table for game state representation
+
+## Implementation Details
+
+The Game Engine follows these design principles:
+
+1. **Single Responsibility Principle**
+   - Each method focuses on one specific task
+   - Complex operations are broken down into smaller, manageable units
+
+2. **Dependency Injection**
+   - Components like Table, Deck, PotManager are injected
+   - Makes the engine testable and modular
+
+3. **Event-Driven Architecture**
+   - State changes and game events trigger notifications
+   - Allows loose coupling with UI and network components
+
+4. **Error Handling**
+   - Validates player actions before execution
+   - Provides clear error messages for invalid actions
+   - Ensures game state consistency
+
+## Testing Approach
+
+The engine is thoroughly tested with:
+
+1. **Unit Tests**
+   - Tests for individual methods and edge cases
+   - Mocking of dependencies for isolated testing
+
+2. **Integration Tests**
+   - Tests that cover multiple components working together
+   - Ensures correct interaction between Game Engine and other components
+
+3. **Game Flow Tests**
+   - Tests complete game scenarios from start to finish
+   - Verifies correct progression through game states
+
+## Usage Example
+
+```typescript
+// Create a game engine with default config (Texas Hold'em No Limit)
+const gameEngine = new GameEngine();
+
+// Add players to the table
+gameEngine.addPlayer(player1);
+gameEngine.addPlayer(player2);
+
+// Start the game
+gameEngine.startGame();
+
+// Register for events
+gameEngine.on('stateChanged', ({ oldState, newState }) => {
+  console.log(`Game state changed from ${oldState} to ${newState}`);
+});
+
+// Process player actions
+const result = gameEngine.handleAction(playerId, new Action(player, ActionType.RAISE, 50));
+```

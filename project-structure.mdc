@@ -1,0 +1,103 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Structure
+
+Read this file before and after each request, add a checkmark next to a part after it has been implemented and finished, and create a new rule that describes its implementation and goals
+
+# Project Structure
+
+The project follows a modular architecture that separates core game logic from presentation and network components:
+
+- [x] `src/models/` - Data structures representing game entities
+- `src/engine/` - Core game logic and state machine
+  - [x] State Machine - Manages game states and transitions
+  - [x] Game Engine - Coordinates game flow and processes actions
+- [x] `src/rules/` - Game variant rules
+- [x] `src/evaluator/` - Hand evaluation logic
+- `src/utils/` - Helper functions
+- [x] `src/types/` - TypeScript types/interfaces
+- `src/server/` - Server-side networking components
+  - [x] WebSocket Service - Handles real-time communication
+  - [x] Room Manager - Manages game rooms and players
+- `src/events/` - Event system for communication
+  - [x] Event Emitter - Base publisher/subscriber implementation
+  - [x] Game Events - Game-specific event definitions
+  - [x] Game Event Bus - Central hub for game events
+
+# Core Components
+
+The engine is built around these key components:
+
+1. [x] Game Engine - Coordinates game flow and processes actions
+2. [x] State Machine - Manages game states (Setup, Dealing, Betting, Showdown)
+3. [x] Player Manager - Tracks player states, stacks, and positions
+4. [x] Dealer - Manages deck and deals cards
+5. [x] Pot Manager - Handles pot calculations (implemented in models/Pot.ts)
+6. [x] Hand Evaluator - Evaluates and ranks poker hands
+7. [x] Rule Provider - Configures different game variants
+
+# Models Implementation
+
+The following models have been implemented:
+
+1. [x] Card - Representation of a playing card with suit and rank
+2. [x] Deck - Standard deck of 52 cards with shuffling and dealing functionality
+3. [x] Hand - Collection of cards with evaluation placeholders
+4. [x] Player - Player representation with stack, cards, and betting functionality
+5. [x] Action - Player actions (fold, check, call, bet, raise)
+6. [x] Pot - Pot management with support for side pots
+7. [x] Table - Game table with players, community cards, and game state
+
+# Hand Evaluator Implementation
+
+The hand evaluator supports different poker variants and is configurable:
+
+1. [x] Base Hand Evaluator - Abstract class with common evaluation logic
+2. [x] Texas Hold'em Evaluator - Best 5 cards from 7 (2 hole + 5 community)
+3. [x] Omaha Evaluator - Must use exactly 2 hole cards and 3 community cards
+4. [x] Hi-Lo Support - Can evaluate both high and low hands
+5. [x] Game Variant Config - Configurable rules for different poker variants
+
+# State Machine Implementation
+
+The state machine manages the game flow through different states:
+
+1. [x] Generic State Machine - Reusable implementation for any state transitions
+2. [x] Game State Machine - Poker-specific state management
+3. [x] State Transition Rules - Defines valid transitions between game states
+4. [x] State Change Notifications - Event system for state changes
+
+# Game Engine Implementation
+
+The game engine coordinates all components and manages the game flow:
+
+1. [x] Game Flow Control - Manages progression through game states
+2. [x] Player Action Processing - Handles player actions and validates them
+3. [x] Card Dealing - Deals hole cards and community cards
+4. [x] Hand Resolution - Determines winners and awards pots
+5. [x] Event System - Notifies components of game events
+
+# Client-Server Architecture
+
+The system is designed for networked play with:
+
+1. [x] Event System - Publisher/Subscriber pattern for state changes
+2. [x] Room Manager - Handles multiple game tables
+3. [x] Socket Service - Real-time communication
+4. [ ] Authentication Service - Player identity and sessions
+5. [x] State Synchronization - Maintains consistent game state through events
+
+# Next Steps
+
+After completing the core engine, these are the priorities for implementation:
+
+1. [x] Player Manager - Centralized management of players across tables
+2. [x] Event System - Communication between components
+3. [x] Server Components - Room management and WebSocket service
+4. [ ] Authentication Service - Player identity and sessions
+5. [ ] Client Interface - Frontend implementation
+6. [ ] Game UI - User interface for playing poker
+

@@ -1,0 +1,71 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# State Machine Implementation
+
+The state machine is a core component of the poker engine that manages game state transitions in a controlled and predictable way.
+
+## Core Components
+
+### StateMachine<T>
+
+The `StateMachine<T>` is a generic implementation that can be used with any state enum:
+
+- **Purpose**: Manages transitions between states with optional conditions
+- **Features**:
+  - Type-safe state transitions with validation
+  - Conditional transitions based on runtime conditions
+  - State change event listeners
+  - Reset capability to return to initial state
+
+### GameStateMachine
+
+The `GameStateMachine` extends the generic state machine for poker-specific game flow:
+
+- **Purpose**: Manages the flow of a poker game through its standard stages
+- **States**:
+  - WAITING: Waiting for players to join
+  - STARTING: Game is being initialized
+  - PREFLOP: Initial betting round with hole cards
+  - FLOP: Betting round after the flop (3 community cards)
+  - TURN: Betting round after the turn (4th community card)
+  - RIVER: Final betting round after the river (5th community card)
+  - SHOWDOWN: Players show their hands and winner is determined
+  - FINISHED: Game has ended, ready for cleanup
+
+## State Transitions
+
+The state machine enforces valid transitions according to poker rules:
+
+- Standard flow: WAITING → STARTING → PREFLOP → FLOP → TURN → RIVER → SHOWDOWN → FINISHED → WAITING
+- Special case (all-in): Can skip directly to SHOWDOWN from any betting round when all players are all-in
+
+## Usage Example
+
+```typescript
+// Create a game state machine
+const stateMachine = new GameStateMachine();
+
+// Check current state
+console.log(stateMachine.getCurrentState()); // WAITING
+
+// Transition to next state
+if (stateMachine.canTransitionTo(GameState.STARTING)) {
+  stateMachine.transition(GameState.STARTING);
+}
+
+// Listen for state changes
+stateMachine.addStateChangeListener((oldState, newState) => {
+  console.log(`Game state changed from ${oldState} to ${newState}`);
+});
+```
+
+## Integration Points
+
+The state machine integrates with these components:
+
+1. **Game Engine**: Uses the state machine to control game flow
+2. **Table**: References the current game state for UI and validation
+3. **Event System**: Publishes state change events to subscribers

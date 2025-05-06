@@ -1,0 +1,43 @@
+{
+  "name": "poker-engine",
+  "version": "1.0.0",
+  "description": "A modular poker game engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w",
+    "example": "npm run build && node dist/examples/HandEvaluationExample.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "server": "npm run build && node dist/index.js server",
+    "client": "npm run build && node dist/index.js client",
+    "cli": "ts-node src/cli.ts"
+  },
+  "keywords": [
+    "poker",
+    "game",
+    "engine"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/clear": "^0.1.4",
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.x.x",
+    "@types/uuid": "^9.0.8",
+    "@types/ws": "^8.5.10",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.x.x"
+  },
+  "dependencies": {
+    "ansi-escapes": "^6.2.1",
+    "chalk": "^5.4.1",
+    "clear": "^0.1.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.16.0"
+  }
+}
