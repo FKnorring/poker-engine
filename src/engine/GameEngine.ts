@@ -1,11 +1,8 @@
 import { Table } from "../models/Table";
 import { Player } from "../models/Player";
-import { Deck } from "../models/Deck";
 import { Card } from "../models/Card";
 import { Action } from "../models/Action";
-import { PotManager } from "../models/Pot";
 import { GameStateMachine } from "./StateMachine";
-import { PlayerManager } from "./PlayerManager";
 import { Dealer } from "./Dealer";
 import {
   GameState,
@@ -21,10 +18,8 @@ import {
   PlayerTurnEvent,
   GameErrorEvent,
   RoundCompleteEvent,
-  GameEngineEventPayload,
 } from "../types";
 import { HandEvaluator } from "../evaluator/HandEvaluator";
-import { GAME_VARIANTS } from "../rules/GameVariantConfig";
 import { TexasHoldemEvaluator } from "../evaluator/TexasHoldemEvaluator";
 import { OmahaEvaluator } from "../evaluator/OmahaEvaluator";
 
@@ -91,23 +86,20 @@ export interface HandWinner {
  */
 export class GameEngine {
   private table: Table;
+  private dealer: Dealer;
   private stateMachine: GameStateMachine;
   private config: GameEngineConfig;
   private handEvaluator: HandEvaluator;
   private eventListeners: Map<GameEngineEventType, ((data: any) => void)[]> =
     new Map();
   private actionTimeoutId: NodeJS.Timeout | null = null;
-  private playerManager: PlayerManager | null = null;
 
   /**
    * Creates a new game engine
    * @param config Game configuration
    * @param playerManager Optional player manager for centralized player tracking
    */
-  constructor(
-    config: GameEngineConfig = DEFAULT_GAME_CONFIG,
-    playerManager?: PlayerManager
-  ) {
+  constructor(config: GameEngineConfig = DEFAULT_GAME_CONFIG) {
     this.config = { ...DEFAULT_GAME_CONFIG, ...config };
 
     // Create a new table with max players from config
@@ -125,35 +117,12 @@ export class GameEngine {
 
     this.stateMachine = new GameStateMachine();
     this.dealer = new Dealer();
-    this.playerManager = playerManager || null;
 
     // Set up state change listener
     this.stateMachine.addStateChangeListener(this.handleStateChange.bind(this));
 
     // Initialize the hand evaluator based on game variant
     this.handEvaluator = this.createHandEvaluator();
-
-    // Register the table with the player manager if provided
-    if (this.playerManager) {
-      this.playerManager.registerTable(this.table);
-    }
-  }
-
-  /**
-   * Sets the player manager for this game engine
-   * @param playerManager The player manager to use
-   */
-  public setPlayerManager(playerManager: PlayerManager): void {
-    this.playerManager = playerManager;
-    playerManager.registerTable(this.table);
-  }
-
-  /**
-   * Gets the player manager if set
-   * @returns The player manager, or null if not set
-   */
-  public getPlayerManager(): PlayerManager | null {
-    return this.playerManager;
   }
 
   /**
@@ -184,37 +153,11 @@ export class GameEngine {
    * @returns True if the player was added successfully
    */
   public addPlayer(player: Player): boolean {
-    if (this.table.players.filter(Boolean).length >= this.config.maxPlayers) {
-      return false;
+    const { success, error } = this.table.seatPlayer(player);
+    if (!success) {
+      throw new Error(error);
     }
-
-    // Find an empty seat
-    const emptySeatIndex = this.table.players.findIndex((p) => p === null);
-
-    if (emptySeatIndex !== -1) {
-      // Try to seat the player
-      const added = this.table.seatPlayer(player, emptySeatIndex);
-
-      // Verify player was actually added to the table
-      const playerIndex = this.table.players.findIndex(
-        (p) => p !== null && p.id === player.id
-      );
-
-      // Explicitly activate the player if needed
-      if (added && player.status !== PlayerStatus.ACTIVE) {
-        player.status = PlayerStatus.ACTIVE;
-      }
-
-      // Update player manager if available
-      if (added && this.playerManager) {
-        // Update player session in player manager
-        this.playerManager.updatePlayerActivity(player.id);
-      }
-
-      return added;
-    }
-
-    return false;
+    return success;
   }
 
   /**
@@ -223,28 +166,11 @@ export class GameEngine {
    * @returns True if the player was removed successfully
    */
   public removePlayer(playerId: string): boolean {
-    const playerIndex = this.table.players.findIndex(
-      (p) => p !== null && p.id === playerId
-    );
-
-    if (playerIndex !== -1) {
-      const removed = this.table.removePlayer(playerId);
-
-      // Update player manager if available
-      if (removed && this.playerManager) {
-        // Find the player's session in the player manager and update it
-        const session = this.playerManager.getPlayerSession(playerId);
-        if (session) {
-          session.currentTableId = null;
-          session.seatIndex = null;
-          session.isActive = false;
-        }
-      }
-
-      return removed;
+    const { success, error } = this.table.removePlayer(playerId);
+    if (!success) {
+      throw new Error(error);
     }
-
-    return false;
+    return success;
   }
 
   /**
@@ -252,7 +178,7 @@ export class GameEngine {
    * @returns True if the game was started successfully
    */
   public startGame(): boolean {
-    const players = this.table.players.filter((p) => p !== null) as Player[];
+    const players = this.table.activePlayers;
 
     // Check if we can start the game
     if (players.length < this.config.minPlayers) {
@@ -264,10 +190,8 @@ export class GameEngine {
     }
 
     // Reset the table and deck
-    this.resetTable();
-
-    // Move the dealer button
-    this.moveDealerButton();
+    this.table.startNewHand();
+    this.dealer.reset();
 
     // Transition to STARTING state
     this.stateMachine.transition(GameState.STARTING);
@@ -320,19 +244,17 @@ export class GameEngine {
     switch (currentState) {
       case GameState.PREFLOP:
         // In preflop, first to act is after the big blind
-        this.currentPlayerIndex =
-          (this.dealerPosition + 3) % activePlayers.length;
+        this.table.setFirstPlayerToAct({ preflop: true });
         break;
       case GameState.FLOP:
       case GameState.TURN:
       case GameState.RIVER:
         // In other rounds, first to act is after the dealer
-        this.currentPlayerIndex =
-          (this.dealerPosition + 1) % activePlayers.length;
+        this.table.setFirstPlayerToAct();
         break;
       default:
         // For other states, reset to the first player
-        this.currentPlayerIndex = 0;
+        this.table.setFirstPlayerToAct();
     }
     this.notifyPlayerTurn();
   }
@@ -341,33 +263,22 @@ export class GameEngine {
    * Posts blinds and antes for the current hand
    */
   private postBlindsAndAntes(): void {
-    const activePlayers = this.table.activePlayers;
-
-    if (activePlayers.length < 2) {
-      return;
-    }
-
     // Post small blind
-    const smallBlindPos = (this.dealerPosition + 1) % activePlayers.length;
-    const smallBlindPlayer = activePlayers[smallBlindPos];
-    smallBlindPlayer.placeBet(this.config.smallBlind);
+    const smallBlind = this.table.getSmallBlind();
+    if (smallBlind) {
+      this.table.addBet(smallBlind.id, this.config.smallBlind);
+    }
 
     // Post big blind
-    const bigBlindPos = (this.dealerPosition + 2) % activePlayers.length;
-    const bigBlindPlayer = activePlayers[bigBlindPos];
-    bigBlindPlayer.placeBet(this.config.bigBlind);
-    // Post antes if configured
-    if (this.config.ante > 0) {
-      activePlayers.forEach((player) => {
-        player.placeBet(this.config.ante);
-      });
+    const bigBlind = this.table.getBigBlind();
+    if (bigBlind) {
+      this.table.addBet(bigBlind.id, this.config.bigBlind);
     }
 
-    // Initialize pot with current bets
-    this.collectBets(true);
-
-    // Set the current bet to the big blind
-    this.table.currentBet = this.config.bigBlind;
+    // Post antes if configured
+    if (this.config.ante > 0) {
+      this.table.postAnte(this.config.ante);
+    }
   }
 
   /**
@@ -399,11 +310,10 @@ export class GameEngine {
       return { success: false, message: "Player not found" };
     }
 
-    const activePlayers = this.table.activePlayers;
-    const currentPlayer = activePlayers[this.currentPlayerIndex];
+    const currentPlayer = this.table.activePlayer;
 
     // Make sure it's the player's turn
-    if (currentPlayer.id !== playerId) {
+    if (currentPlayer?.id !== playerId) {
       return { success: false, message: "Not your turn" };
     }
 
@@ -421,7 +331,7 @@ export class GameEngine {
 
       case ActionType.CHECK:
         // Can only check if no one has bet or player has matched the current bet
-        if (this.table.currentBet > player.currentBet) {
+        if (!this.table.canCheck) {
           return {
             success: false,
             message: "Cannot check, must call or raise",
@@ -432,8 +342,7 @@ export class GameEngine {
 
       case ActionType.CALL:
         // Call the current bet
-        actionSuccess =
-          player.placeBet(this.table.currentBet - player.currentBet) > 0;
+        actionSuccess = this.table.call;
         break;
 
       case ActionType.BET:
